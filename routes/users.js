@@ -6,8 +6,6 @@ const bcrypt = require('bcrypt')
 //update user
 
 router.put("/:id",async (req,res) =>{
-    if(req.body.userId === req.params.id ||req.body.isAdmin)
-    {
         if(req.body.password){
             try{
                 const salt =  await bcrypt.genSalt(10)
@@ -18,20 +16,25 @@ router.put("/:id",async (req,res) =>{
                 return res.status(500).json(err)
             }
         }
+       
         try{
+            const prev = await User.findById(req.params.id)
+            const userData = {
+                ...prev._doc,
+                ...req.body
+            }
+           
             const user = await User.findByIdAndUpdate(req.params.id,{
-                $set: req.body,
-            })
-
-            res.status(200).json("Account has been updated")
+                $set: userData
+            }, {
+                new: true, // Return the updated document
+              })
+            res.status(200).json(user)
         }catch(err)
         {
             return res.status(500).json(err)
         }
 
-    }else {
-        return res.status(403).json("You can update only your account")
-    }
 })
 
 //delete user
@@ -98,13 +101,14 @@ router.get("/friends/:userId",async(req,res)=>{
 router.put("/:id/follow",async (req,res)=>{
     if(req.body.userId !== req.params.id){
         try{
+            console.log('accessed follow request')
             const user = await User.findById(req.params.id)
             const currentUser = await User.findById(req.body.userId);
             if(!user.followers.includes(req.body.userId))
             {
                 await user.updateOne({$push: {followers: req.body.userId}})
                 await currentUser.updateOne({ $push : {following: req.params.id}})
-                res.status(200).json("user has been followed")
+                res.status(200).json(req.params.id)
             }else{
                 res.status(403).json("you already follow this user")
             }
@@ -127,7 +131,7 @@ router.put("/:id/unfollow",async (req,res)=>{
             {
                 await user.updateOne({$pull: {followers: req.body.userId}})
                 await currentUser.updateOne({ $pull : {following: req.params.id}})
-                res.status(200).json("user has been unfollowed")
+                res.status(200).json(req.params.id)
             }else{
                 res.status(403).json("you were'nt following this user")
             }
